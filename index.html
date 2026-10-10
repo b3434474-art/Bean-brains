@@ -136,7 +136,7 @@ const edges={
 const vents=[
  ["Upper Engine",290,115],["Reactor",145,275],["Security",350,240],["MedBay",430,280],["Electrical",350,350],["Lower Engine",285,480],["Storage",420,455],["Admin",600,310],["Cafeteria",490,135],["Weapons",850,320],["O2",680,240],["Navigation",860,205],["Shields",685,350],["Communications",690,480]
 ];
-let S={players:[],phase:"Lobby",round:0,meetings:0,total:0,done:0,started:false,ended:false,logs:[],chat:[],auto:null,sabotage:null,sabotageReadyAt:0,sabotageCooldown:30000,observerVote:null,meetingOpen:false,votes:{},voted:new Set()};
+let S={players:[],phase:"Lobby",round:0,meetings:0,total:0,done:0,started:false,ended:false,logs:[],chat:[],auto:null,sabotage:null,sabotageReadyAt:0,sabotageCooldown:30000,meetingReadyAt:0,meetingCooldown:60000,observerVote:null,meetingOpen:false,votes:{},voted:new Set()};
 const $=id=>document.getElementById(id), pick=a=>a[Math.floor(Math.random()*a.length)], shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 function svgEl(tag,attrs,parent){let e=document.createElementNS("http://www.w3.org/2000/svg",tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));parent.appendChild(e);return e}
 function drawMap(){
@@ -157,7 +157,7 @@ function assignGhostRole(p){
 }
 function eliminate(p,why="was eliminated"){if(!p||!p.alive)return;p.alive=false;log(`${p.name} ${why}.` ,"bad");if(p.team==="Crewmate")assignGhostRole(p)}
 function reset(){
- clearInterval(S.auto);S={players:shuffle(names).slice(0,+$("nplayers").value).map((n,i)=>({id:i,name:n,color:colors[names.indexOf(n)],personality:pers[i%pers.length],role:"Unknown",alive:true,room:"Cafeteria",tasks:0,done:0,seen:[],suspicion:{}})),phase:"Lobby",round:0,meetings:0,total:0,done:0,started:false,ended:false,logs:[],chat:[],auto:null,sabotage:null,sabotageReadyAt:0,sabotageCooldown:30000,observerVote:null,meetingOpen:false,votes:{},voted:new Set()};
+ clearInterval(S.auto);S={players:shuffle(names).slice(0,+$("nplayers").value).map((n,i)=>({id:i,name:n,color:colors[names.indexOf(n)],personality:pers[i%pers.length],role:"Unknown",alive:true,room:"Cafeteria",tasks:0,done:0,seen:[],suspicion:{}})),phase:"Lobby",round:0,meetings:0,total:0,done:0,started:false,ended:false,logs:[],chat:[],auto:null,sabotage:null,sabotageReadyAt:0,sabotageCooldown:30000,meetingReadyAt:0,meetingCooldown:60000,observerVote:null,meetingOpen:false,votes:{},voted:new Set()};
  $("phase").textContent="Lobby";$("meetings").textContent=0;$("round").textContent="Round 0";$("chat").innerHTML='<p class="muted">No meeting yet.</p>';log("Lobby ready. Start when you're ready.");render();
 }
 function start(){
@@ -316,7 +316,9 @@ async function requestAIMeetingChat(why){
 }
 function meeting(why){
  if(S.ended)return;
+ if(Date.now()<S.meetingReadyAt){log("⏳ Meeting cooldown: wait before calling another meeting.","meet");return}
  if(why==="emergency"&&!alive().some(p=>p.room==="Cafeteria")){log("No emergency meeting: a living player must be in Cafeteria.","meet");return}
+ S.meetingReadyAt=Date.now()+S.meetingCooldown;
  S.phase="Meeting";S.meetings++;S.chat=[];log(why==="body"?"🚨 Emergency meeting: body reported.":"🚨 Emergency meeting called.","meet");
  const living=alive();
  living.forEach(p=>{if(Math.random()<.95){let others=living.filter(q=>q.id!==p.id);if(others.length){let suspect=others.sort((a,b)=>score(p,b)-score(p,a))[0];const sight=p.seen.filter(x=>x.round>=S.round-2&&x.id===suspect.id);let line=sight.length?"I saw "+suspect.name+" around "+sight[0].room+".":p.personality==="logical"?"My last known location was "+p.room+". Let us compare routes.":p.personality==="observant"?"Who was near "+pick(Object.keys(rooms))+"? I noticed movement there.":p.personality==="skeptical"?"I need evidence before accusing "+suspect.name+".":p.personality==="social"?"Everyone, share your alibis. Where were you?":suspect.name+" was near "+suspect.room+"; can anyone confirm that?";S.chat.push({name:p.name,text:line})}}});
