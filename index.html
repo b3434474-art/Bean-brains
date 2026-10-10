@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1019"><meta name="description" content="Bean Brain: a fan-made AI Among Us-style game on The Skeld."><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Bean Brain"><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon.svg">
 <title>Bean Brain — The Skeld AI Match</title>
 <style>
 :root{--bg:#0b1019;--panel:#151e2d;--panel2:#202c40;--line:#34465f;--text:#eef4ff;--muted:#a6b5ca;--green:#5de4b7;--red:#ff6476}
@@ -298,4 +299,6 @@ $("observerMessage").addEventListener("keydown",e=>{if(e.key==="Enter")$("sendOb
 $("start").onclick=start;$("step").onclick=phase;$("reset").onclick=reset;$("auto").onclick=()=>{if(S.auto){clearInterval(S.auto);S.auto=null}else{if(!S.started)start();S.auto=setInterval(()=>{if(!S.ended)phase();else{clearInterval(S.auto);S.auto=null}render()},2200)}render()};
 ["nplayers","nimp","ntasks","confirm"].forEach(id=>$(id).onchange=()=>{if(!S.started||S.ended)reset()});
 drawMap();reset();requestAnimationFrame(animateMovement);
+
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Offline app setup unavailable:", err))); }
 </script></body></html>
