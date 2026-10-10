@@ -1,0 +1,23 @@
+{
+  "id": "./",
+  "name": "Bean Brain: The Skeld",
+  "short_name": "Bean Brain",
+  "description": "A fan-made AI Among Us-style game on The Skeld.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b1019",
+  "theme_color": "#0b1019",
+  "categories": [
+    "games"
+  ],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
