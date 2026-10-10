@@ -191,12 +191,12 @@ function navRoute(fromRoom,toRoom){
 function move(p){
  const options=edges[p.room]||["Cafeteria"],next=pick(options),route=navRoute(p.room,next);
  if(p.x==null){p.x=route[0].x;p.y=route[0].y}route[0]={x:p.x,y:p.y};
- p.motion={points:route,index:0,segmentStart:performance.now(),duration:500};p.room=next;
+ p.motion={points:route,index:0,segmentStart:performance.now(),duration:1400};p.room=next;
  S.players.filter(q=>q.id!==p.id&&q.alive&&q.room===p.room).forEach(q=>{if(Math.random()<.8){p.seen.push({id:q.id,room:p.room,round:S.round});q.seen.push({id:p.id,room:p.room,round:S.round})}});
 }
 function animateMovement(now){
  S.players.forEach(p=>{if(!p.alive||!p.token||!p.label)return;let x,y;
-  if(p.motion){const m=p.motion,a=m.points[m.index],b=m.points[m.index+1];if(!b){p.motion=null;x=p.x;y=p.y}else{const t=Math.max(0,Math.min(1,(now-m.segmentStart)/m.duration)),e=t*t*(3-2*t);x=a.x+(b.x-a.x)*e;y=a.y+(b.y-a.y)*e;if(t>=1){m.index++;m.segmentStart=now;const n=m.points[m.index+1];m.duration=n?Math.max(250,Math.min(750,Math.hypot(n.x-b.x,n.y-b.y)*3)):300;if(!n){p.motion=null;x=b.x;y=b.y}}}}
+  if(p.motion){const m=p.motion,a=m.points[m.index],b=m.points[m.index+1];if(!b){p.motion=null;x=p.x;y=p.y}else{const t=Math.max(0,Math.min(1,(now-m.segmentStart)/m.duration)),e=t*t*(3-2*t);x=a.x+(b.x-a.x)*e;y=a.y+(b.y-a.y)*e;if(t>=1){m.index++;m.segmentStart=now;const n=m.points[m.index+1];m.duration=n?Math.max(700,Math.min(1700,Math.hypot(n.x-b.x,n.y-b.y)*6)):850;if(!n){p.motion=null;x=b.x;y=b.y}}}}
   else {const pt=roomPoint(p.room);x=p.x??pt.x;y=p.y??pt.y}
   p.x=x;p.y=y;const i=p.id,dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;p.token.setAttribute("transform","translate("+(x+dx)+" "+(y+dy)+")");p.label.setAttribute("x",0);p.label.setAttribute("y",31);const parts=p.spriteParts;if(parts){const moving=!!p.motion,step=now/100;parts.legL.setAttribute("transform",moving?"rotate("+Math.sin(step)*24+" -6 14)":"");parts.legR.setAttribute("transform",moving?"rotate("+(-Math.sin(step)*24)+" 5 14)":"");parts.body.setAttribute("transform",moving?"translate(0 "+(Math.abs(Math.sin(step))*1.7)+")":"");parts.pack.setAttribute("transform",moving?"translate(0 "+(Math.abs(Math.sin(step))*1.7)+")":"");parts.visor.setAttribute("transform",moving?"translate(0 "+(Math.abs(Math.sin(step))*1.7)+")":"");}
  });requestAnimationFrame(animateMovement);
