@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bean Brain — The Skeld AI Match</title>
+<style>
+:root{--bg:#0b1019;--panel:#151e2d;--panel2:#202c40;--line:#34465f;--text:#eef4ff;--muted:#a6b5ca;--green:#5de4b7;--red:#ff6476}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1c2b43,#0b1019 70%);color:var(--text);font-family:system-ui,Arial,sans-serif}
+header,main{max-width:1200px;margin:auto;padding:16px}header h1{margin:4px 0;font-size:clamp(1.7rem,4vw,2.5rem)}header p{color:var(--muted);margin:4px 0}
+main{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:14px;padding-top:0}
+.panel{background:#151e2df2;border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
+h2{font-size:1.05rem;margin:0 0 10px}h3{font-size:.9rem;margin:15px 0 8px}
+.controls{display:flex;flex-wrap:wrap;gap:7px}button,select{background:#26364e;border:1px solid #485e7d;border-radius:10px;color:var(--text);padding:9px 11px;font:inherit}button{cursor:pointer;font-weight:700}button.primary{background:var(--green);color:#10251f;border-color:var(--green)}button:disabled{opacity:.4;cursor:default}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;color:var(--muted)}select{max-width:170px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}.stat{padding:9px;background:var(--panel2);border-radius:10px}.stat small{display:block;color:var(--muted)}.stat strong{font-size:1.15rem}
+.mapwrap{position:relative;width:100%;border:1px solid #34445b;border-radius:12px;overflow:hidden;background:#05070a;aspect-ratio:1536/1024}
+.mapwrap svg{display:block;width:100%;height:100%}
+.room{fill:#1b293b;stroke:#8da2be;stroke-width:2}.corridor{fill:#26364a;stroke:#7d93ad;stroke-width:2}
+.roomlabel{fill:#eef4ff;font-size:16px;font-weight:700;text-anchor:middle;paint-order:stroke;stroke:#172234;stroke-width:3}
+.path{fill:none;stroke:#7890ad;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;opacity:.7}
+.vent{fill:#111722;stroke:#a6b7ce;stroke-width:2}.camera{fill:#ff344d;stroke:#ffd0d4;stroke-width:1}
+.player{cursor:help;stroke:#111722;stroke-width:2}.playertext{fill:#fff;font-size:10px;text-anchor:middle;paint-order:stroke;stroke:#101725;stroke-width:3}
+.legend{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:.75rem;margin-top:8px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+.roster{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.bean{background:var(--panel2);border:1px solid #3b4e6b;border-radius:9px;padding:7px 3px;text-align:center;min-width:0}.bean .avatar{font-size:1.25rem}.bean b{display:block;font-size:.7rem;overflow:hidden;text-overflow:ellipsis}.bean small{font-size:.64rem;color:var(--muted)}.bean.dead{opacity:.38;filter:grayscale(1)}.bean.imp{border-color:var(--red)}
+.log{height:330px;overflow:auto;display:flex;flex-direction:column;gap:7px}.event{font-size:.83rem;line-height:1.35;background:var(--panel2);padding:8px 9px;border-left:3px solid #6c86ab;border-radius:8px}.event.good{border-color:var(--green)}.event.bad{border-color:var(--red)}.event.meet{border-color:#ffd16d}.event small{display:block;color:var(--muted);font-size:.67rem;margin-bottom:3px}
+.chat{display:flex;flex-direction:column;gap:6px;max-height:250px;overflow:auto}.speech{background:var(--panel2);padding:8px 9px;border-radius:8px;font-size:.8rem;line-height:1.35}.speech b{color:var(--green)}
+.progress{height:9px;background:#0a0e16;border-radius:9px;overflow:hidden}.progress span{height:100%;display:block;width:0;background:var(--green)}
+.muted{color:var(--muted);font-size:.77rem;line-height:1.45}.pill{display:inline-block;border-radius:20px;padding:3px 8px;background:#293c57;font-size:.7rem}
+
+.meetingModal{position:fixed;inset:0;z-index:50;background:#050911c9;display:none;align-items:center;justify-content:center;padding:12px}
+.meetingModal.show{display:flex}
+.meetingWindow{width:min(1050px,100%);height:min(690px,94dvh);display:grid;grid-template-rows:auto 1fr auto;background:#424b5b;border:7px solid #71859b;border-radius:24px;box-shadow:0 0 0 4px #151c27;overflow:hidden}
+.meetingHeader{padding:12px 16px;background:#353e4d;border-bottom:3px solid #202a39;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.meetingHeader h2{margin:0;font-size:clamp(1.05rem,3vw,1.8rem);text-align:center;flex:1;color:#f2f5fb;text-shadow:2px 3px #202630}
+.meetingHeader small{color:#d4dfec}
+.meetingBody{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,.85fr);gap:10px;padding:12px;background:#454b56}
+.voteGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px;overflow:auto;padding:2px}
+.voteCard{display:flex;align-items:center;gap:9px;min-height:62px;background:#f0f4fa;color:#273142;border:3px solid #a6b2c1;border-radius:6px;padding:6px;cursor:pointer;text-align:left;position:relative}
+.voteCard:hover:not(:disabled){border-color:#fff}
+.voteCard:disabled{opacity:.48;cursor:default}
+.voteCard.selected{border-color:#62efb2;box-shadow:0 0 0 2px #153f36}
+.voteAvatar{font-size:2rem;line-height:1}
+.voteNames{min-width:0;flex:1}.voteNames b{display:block;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.voteNames small{font-size:.72rem;color:#586273}
+.voteMark{position:absolute;right:4px;top:3px;font-size:.72rem;background:#be293b;color:white;border-radius:20px;padding:2px 5px}
+.chatPanel{display:flex;flex-direction:column;min-height:0;background:#313946;border:2px solid #7f8b9b;border-radius:8px;overflow:hidden}
+.chatTitle{padding:8px 10px;background:#252d3a;color:#dbe6f4;font-weight:800;font-size:.82rem;display:flex;justify-content:space-between;gap:6px}
+.chatMessages{flex:1;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:7px}
+.chatLine{background:#f5f7fb;color:#222c3a;border-radius:7px;padding:7px 9px;font-size:.78rem;line-height:1.35;box-shadow:0 2px #aab3c1}
+.chatLine b{color:#177c4d}.chatLine.system{background:#dce5f1;color:#384458;font-weight:700}
+.chatComposer{display:flex;gap:5px;padding:7px;background:#252d3a}.chatComposer input{width:100%;min-width:0;background:#f7f9fc;color:#202938;border:2px solid #adb8c7;border-radius:6px;padding:9px;font:inherit}.chatComposer button{padding:8px}
+.meetingFooter{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#353e4d;border-top:3px solid #202a39}
+.timer{font-weight:800;color:#f3f5fa}.skipBtn{background:#dce4ee;color:#273142;border:2px solid #a9b5c4}
+@media(max-width:700px){.meetingWindow{height:96dvh;border-width:4px;border-radius:14px}.meetingBody{grid-template-columns:1fr;grid-template-rows:minmax(180px,.9fr) minmax(190px,1fr);overflow:auto}.voteGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.chatPanel{min-height:190px}.meetingHeader{padding:8px}.meetingFooter{padding:8px}.voteCard{min-height:52px}.voteAvatar{font-size:1.6rem}}
+
+@media(max-width:800px){main{grid-template-columns:1fr}.log{height:240px}.roster{grid-template-columns:repeat(5,minmax(0,1fr))}}
+</style></head><body>
+<header><h1>🫘 Bean Brain: The Skeld</h1><p>AI Among Us simulator · The Skeld room graph · 29 single-color characters</p></header>
+<main>
+<section class="panel">
+<h2>Match controls</h2><div class="controls"><button class="primary" id="start">▶ Start match</button><button id="step">⏭ Next phase</button><button id="auto">⚡ Auto-play</button><button id="reset">↻ New lobby</button></div>
+<div class="row"><label for="nplayers">Players</label><select id="nplayers"><option>8</option><option selected>10</option><option>12</option><option>15</option></select></div>
+<div class="row"><label for="nimp">Impostors</label><select id="nimp"><option>1</option><option selected>2</option><option>3</option></select></div>
+<div class="row"><label for="ntasks">Tasks per Crewmate</label><select id="ntasks"><option>3</option><option selected>5</option><option>7</option></select></div>
+<div class="row"><label for="confirm">Confirm ejections</label><select id="confirm"><option value="yes" selected>On</option><option value="no">Off</option></select></div>
+<div class="stats"><div class="stat"><small>Phase</small><strong id="phase">Lobby</strong></div><div class="stat"><small>Alive</small><strong id="alive">10</strong></div><div class="stat"><small>Meetings</small><strong id="meetings">0</strong></div></div>
+<h3>The Skeld — simplified room map</h3>
+<div class="mapwrap"><svg id="map" viewBox="0 0 1000 660" role="img" aria-label="Simplified schematic map of The Skeld">
+<!-- corridors and room outlines; schematic, not a pixel-accurate map -->
+<path class="path" d="M390 90 L500 90 L610 90 L750 90 M500 90 L500 190 L500 290 L500 390 M390 190 L500 190 M280 190 L390 190 M280 190 L280 300 L390 300 L500 300 M500 390 L390 390 L280 390 L280 500 M500 390 L610 390 L720 390 L820 390 M610 290 L720 290 L820 290 L820 390 M720 290 L720 190 L820 190 M610 390 L610 500 L720 500"/>
+<rect class="room" x="380" y="20" width="240" height="140" rx="30"/><text class="roomlabel" x="500" y="90">CAFETERIA</text>
+<rect class="room" x="240" y="90" width="130" height="100" rx="8"/><text class="roomlabel" x="305" y="145">UPPER ENGINE</text>
+<rect class="room" x="110" y="180" width="140" height="120" rx="8"/><text class="roomlabel" x="180" y="245">REACTOR</text>
+<rect class="room" x="255" y="205" width="115" height="100" rx="8"/><text class="roomlabel" x="312" y="260">SECURITY</text>
+<rect class="room" x="390" y="180" width="125" height="125" rx="8"/><text class="roomlabel" x="452" y="245">MEDBAY</text>
+<rect class="room" x="265" y="330" width="120" height="95" rx="8"/><text class="roomlabel" x="325" y="385">ELECTRICAL</text>
+<rect class="room" x="385" y="350" width="230" height="160" rx="8"/><text class="roomlabel" x="500" y="435">STORAGE</text>
+<rect class="room" x="515" y="245" width="125" height="95" rx="8"/><text class="roomlabel" x="577" y="295">ADMIN</text>
+<rect class="room" x="650" y="175" width="125" height="90" rx="8"/><text class="roomlabel" x="712" y="225">O2</text>
+<rect class="room" x="775" y="175" width="115" height="90" rx="8"/><text class="roomlabel" x="832" y="225">NAVIGATION</text>
+<rect class="room" x="650" y="285" width="125" height="95" rx="8"/><text class="roomlabel" x="712" y="335">SHIELDS</text>
+<rect class="room" x="780" y="285" width="110" height="90" rx="8"/><text class="roomlabel" x="835" y="335">WEAPONS</text>
+<rect class="room" x="650" y="410" width="145" height="100" rx="8"/><text class="roomlabel" x="722" y="465">COMMUNICATIONS</text>
+<rect class="room" x="235" y="450" width="145" height="100" rx="8"/><text class="roomlabel" x="307" y="505">LOWER ENGINE</text>
+<g id="vents"></g><g id="cams"></g><g id="markers"></g><g id="tokens"></g>
+</svg></div>
+<div class="legend"><span><i class="dot" style="background:#a6b7ce"></i>Vent</span><span><i class="dot" style="background:#ff344d"></i>Security camera</span><span><i class="dot" style="background:#5de4b7"></i>Bot</span><span><i class="dot" style="background:#ff6476"></i>Impostor</span></div>
+<h3>Task progress</h3><div class="progress"><span id="bar"></span></div><p class="muted" id="taskLabel">Start a match to assign secret roles and tasks.</p>
+<h3>Roster</h3><div id="roster" class="roster"></div>
+<h3>Meeting discussion</h3><div id="chat" class="chat"><p class="muted">No meeting yet.</p></div>
+</section>
+<section class="panel"><h2>Match feed <span class="pill" id="round">Round 0</span></h2><div class="log" id="log"></div>
+<h3>Implemented in this prototype</h3><p class="muted">• Skeld room nodes and approximate corridor links<br>• Bot movement between rooms and private sightings<br>• 14 schematic vent markers and vent-travel events for Impostors<br>• Lights, Comms, Reactor, O₂, and door sabotage events<br>• All requested roles: Engineer, Scientist, Tracker, Noisemaker, Detective, Shapeshifter, Phantom, Viper, Influencer, Judge<br>• Guardian Angel and Influencer are ghost roles gained only after a Crewmate dies<br>• Judge unlocks a once-per-game meeting overrule after completing 3 tasks<br>• Meetings, evidence-weighted votes, task progress, and team win checks</p>
+<p class="muted"><b>Honesty note:</b> this is a fan-made schematic simulation, not the official map image or a pixel-perfect map. Exact coordinates, task minigames, timers, vent routes, and sabotage repair interactions still need refinement against the wiki.</p></section>
+</main>
+
+<div class="meetingModal" id="meetingModal" role="dialog" aria-modal="true" aria-labelledby="meetingTitle">
+ <div class="meetingWindow">
+  <div class="meetingHeader"><small>🗳️ EMERGENCY</small><h2 id="meetingTitle">Who Is The Impostor?</h2><small id="meetingPhaseLabel">DISCUSSION</small></div>
+  <div class="meetingBody">
+   <div><div id="voteGrid" class="voteGrid"></div><p class="muted" style="color:#e1e7f0">Choose a player to cast your observer vote, or skip.</p></div>
+   <div class="chatPanel"><div class="chatTitle"><span>MEETING CHAT</span><span id="remainingVotes">10 remaining</span></div><div id="meetingMessages" class="chatMessages"></div><div class="chatComposer"><input id="observerMessage" maxlength="100" placeholder="Observer message (optional)"><button id="sendObserver">Send</button></div></div>
+  </div>
+  <div class="meetingFooter"><button class="skipBtn" id="skipVote">SKIP VOTE</button><span class="timer" id="voteTimer">Voting phase</span><button class="primary" id="finishMeeting">Finish vote</button></div>
+ </div>
+</div>
+
+<script>
+const names=["Red","Yellow","Cyan","Gray","Ketchup","Wild","Blue","Black","Lime","Tan","Neon Yellow","Teal","Green","White","Maroon","Coral","Shell","L.N.X.","Pink","Purple","Rose","Forest","RHM","Orange","Brown","Banana","Olive","Bill","Charles"];
+const colors=["#d80d32","#ffe84a","#28d5d1","#65758a","#ff303b","#6b4c35","#1536db","#252b35","#31e84b","#918474","#dfff00","#4b9ce4","#087c37","#c9d5f0","#74130f","#ed6c83","#c8c8c8","#71983d","#e849bc","#642bb7","#e6b6ce","#15834b","#6026b8","#f58216","#6c3f1d","#fff2a8","#536b12","#42b994","#f20b1d"];
+const pers=["careful","bold","quiet","chaotic","logical","social","skeptical","helpful","confident","observant","paranoid","calm","curious","blunt","sneaky"];
+const rooms={
+ "Cafeteria":[500,90],"Upper Engine":[305,145],"Reactor":[180,245],"Security":[312,260],"MedBay":[452,245],"Electrical":[325,385],"Storage":[500,435],"Admin":[577,295],"O2":[712,225],"Navigation":[832,225],"Shields":[712,335],"Weapons":[835,335],"Communications":[722,465],"Lower Engine":[307,505]
+};
+const edges={
+ "Cafeteria":["Upper Engine","MedBay","Admin","Weapons"],
+ "Upper Engine":["Cafeteria","Reactor","Security","Lower Engine"],
+ "Reactor":["Upper Engine","Security","Lower Engine"],
+ "Security":["Upper Engine","Reactor","MedBay","Electrical"],
+ "MedBay":["Cafeteria","Security","Electrical"],
+ "Electrical":["Security","MedBay","Storage","Lower Engine"],
+ "Storage":["Electrical","Admin","Communications","Lower Engine","Shields"],
+ "Admin":["Cafeteria","Storage","O2","Communications"],
+ "O2":["Admin","Navigation","Shields"],
+ "Navigation":["O2","Weapons"],
+ "Shields":["O2","Storage","Communications"],
+ "Weapons":["Cafeteria","Navigation"],
+ "Communications":["Admin","Storage","Shields"],
+ "Lower Engine":["Upper Engine","Reactor","Electrical","Storage"]
+};
+const vents=[
+ ["Upper Engine",290,115],["Reactor",145,275],["Security",350,240],["MedBay",430,280],["Electrical",350,350],["Lower Engine",285,480],["Storage",420,455],["Admin",600,310],["Cafeteria",490,135],["Weapons",850,320],["O2",680,240],["Navigation",860,205],["Shields",685,350],["Communications",690,480]
+];
+let S={players:[],phase:"Lobby",round:0,meetings:0,total:0,done:0,started:false,ended:false,logs:[],chat:[],auto:null,sabotage:null,observerVote:null,meetingOpen:false,votes:{},voted:new Set()};
+const $=id=>document.getElementById(id), pick=a=>a[Math.floor(Math.random()*a.length)], shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function svgEl(tag,attrs,parent){let e=document.createElementNS("http://www.w3.org/2000/svg",tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));parent.appendChild(e);return e}
+function drawMap(){
+ const vg=$("vents"),cg=$("cams");vg.innerHTML="";cg.innerHTML="";
+ vents.forEach(([r,x,y],i)=>{let c=svgEl("ellipse",{cx:x,cy:y,rx:8,ry:5,class:"vent",title:"Vent near "+r},vg);c.setAttribute("data-room",r)});
+ [["Upper Engine",350,110],["Cafeteria",570,55],["Weapons",850,195],["Navigation",850,250],["Admin",630,280],["Electrical",300,360],["Storage",500,480],["Shields",750,350]].forEach(([r,x,y])=>svgEl("circle",{cx:x,cy:y,r:4,class:"camera",title:"Camera zone: "+r},cg));
+}
+function log(t,type=""){S.logs.unshift({t,type});renderLog()}
+function alive(){return S.players.filter(p=>p.alive)}
+function imps(){return alive().filter(p=>p.team==="Impostor")}
+function crew(){return alive().filter(p=>p.team==="Crewmate")}
+const crewRoles=["Engineer","Scientist","Tracker","Noisemaker","Detective","Judge"];
+const impRoles=["Impostor","Shapeshifter","Phantom","Viper"];
+function assignGhostRole(p){
+ if(!p||p.team!=="Crewmate"||p.role==="Guardian Angel"||p.role==="Influencer")return;
+ if(!S.players.some(q=>q.role==="Guardian Angel")){p.role="Guardian Angel";log(`✨ ${p.name} became a Guardian Angel after dying. They can protect a living Crewmate.`,"good");return}
+ if(!S.players.some(q=>q.role==="Influencer")){p.role="Influencer";p.influenceUses=0;log(`📸 ${p.name} became the Influencer after dying. Their ghost can send clue messages to the living.`,"good")}
+}
+function eliminate(p,why="was eliminated"){if(!p||!p.alive)return;p.alive=false;log(`${p.name} ${why}.` ,"bad");if(p.team==="Crewmate")assignGhostRole(p)}
+function reset(){
+ clearInterval(S.auto);S={players:shuffle(names).slice(0,+$("nplayers").value).map((n,i)=>({id:i,name:n,color:colors[names.indexOf(n)],personality:pers[i%pers.length],role:"Unknown",alive:true,room:"Cafeteria",tasks:0,done:0,seen:[],suspicion:{}})),phase:"Lobby",round:0,meetings:0,total:0,done:0,started:false,ended:false,logs:[],chat:[],auto:null,sabotage:null,observerVote:null,meetingOpen:false,votes:{},voted:new Set()};
+ $("phase").textContent="Lobby";$("meetings").textContent=0;$("round").textContent="Round 0";$("chat").innerHTML='<p class="muted">No meeting yet.</p>';log("Lobby ready. Start when you're ready.");render();
+}
+function start(){
+ if(S.started&&!S.ended)return;
+ const count=Math.min(+$("nimp").value,S.players.length-1), tasks=+$("ntasks").value;
+ shuffle(S.players).forEach((p,i)=>{p.team=i<count?"Impostor":"Crewmate";p.role=p.team==="Impostor"?"Impostor":"Crewmate";p.alive=true;p.room="Cafeteria";p.tasks=p.team==="Crewmate"?tasks:0;p.done=0;p.seen=[];p.suspicion={};p.protected=false;p.tracked=null;p.judgeUsed=false;p.influenceUses=0});
+ // Give special roles to a small random selection without changing team alignment.
+ const crewPool=shuffle(S.players.filter(p=>p.team==="Crewmate"));
+ // Randomize both player and role order so every Crewmate role, including Judge, can appear.
+ const rolePool=shuffle([...crewRoles]);
+ crewPool.slice(0,Math.min(rolePool.length,Math.max(0,Math.floor(crewPool.length/3)))).forEach((p,i)=>p.role=rolePool[i]);
+ const impPool=shuffle(S.players.filter(p=>p.team==="Impostor"));
+ impPool.forEach((p,i)=>{if(i>0)p.role=pick(["Shapeshifter","Phantom","Viper"])});
+ S.total=S.players.reduce((n,p)=>n+p.tasks,0);S.done=0;S.started=true;S.ended=false;S.phase="Tasks";S.round=1;S.meetings=0;S.sabotage=null;
+ log(`Match started on The Skeld: ${S.players.length} players, ${count} Impostor(s).`,"good");log("Everyone starts in Cafeteria. Secret roles assigned.");render();
+}
+function move(p){
+ const options=edges[p.room]||["Cafeteria"];p.room=pick(options);
+ S.players.filter(q=>q.id!==p.id&&q.alive&&q.room===p.room).forEach(q=>{if(Math.random()<.8){p.seen.push({id:q.id,room:p.room,round:S.round});q.seen.push({id:p.id,room:p.room,round:S.round})}});
+}
+function sabotage(){
+ if(!imps().length)return;
+ const opts=["Lights sabotage: Crewmate vision reduced until lights are restored.","Comms sabotage: affected information systems are disrupted until communications are restored.","Reactor Meltdown: critical timer started; Crewmates must coordinate to stabilize Reactor.","Oxygen Depleted: critical timer started; Crewmates must resolve the O₂ panels.","Door sabotage: doors close temporarily, changing routes."];
+ S.sabotage=pick(opts);log("🚨 "+S.sabotage,"bad");
+ // prototype resolution event; critical countdown is represented as a phase, not real-time exact timer.
+ if(S.sabotage.startsWith("Reactor")||S.sabotage.startsWith("Oxygen")){
+   if(Math.random()<.72){log("Crewmates coordinate and resolve the critical sabotage in time.","good");S.sabotage=null}
+   else {log("The critical sabotage was not resolved in this simulated phase.","bad");S.ended=true;S.phase="Game over";log("🏆 Impostors win by sabotage.","bad")}
+ } else if(S.sabotage.startsWith("Lights")||S.sabotage.startsWith("Comms")) {
+   if(Math.random()<.7){log("A Crewmate repairs the sabotage.","good");S.sabotage=null}
+ } else {log("Doors reopen after the temporary door sabotage.");S.sabotage=null}
+}
+
+function openMeetingUI(){
+ S.meetingOpen=true;S.observerVote=null;S.votes={};S.voted=new Set();$("meetingModal").classList.add("show");
+ $("meetingMessages").innerHTML="";
+ S.chat.forEach(s=>addMeetingLine(s.name,s.text));
+ addMeetingLine("SYSTEM","Vote for a player or skip. Bot votes will arrive during the meeting.","system");
+ renderMeetingUI();
+}
+function addMeetingLine(name,text,type=""){
+ const d=document.createElement("div");d.className="chatLine "+type;
+ d.innerHTML=`<b>${String(name).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]))}</b><br>${String(text).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]))}`;
+ $("meetingMessages").appendChild(d);$("meetingMessages").scrollTop=$("meetingMessages").scrollHeight;
+}
+function renderMeetingUI(){
+ const grid=$("voteGrid");grid.innerHTML="";
+ S.players.forEach(p=>{
+  const b=document.createElement("button");b.className="voteCard"+(S.observerVote===String(p.id)?" selected":"");b.disabled=!p.alive||S.voted.has("observer");
+  const emojiByColor={"#d80d32":"🔴","#ffe84a":"🟡","#28d5d1":"🩵","#65758a":"🩶","#ff303b":"🔴","#6b4c35":"🟤","#1536db":"🔵","#252b35":"⚫","#31e84b":"🟢","#918474":"🟤","#dfff00":"🟡","#4b9ce4":"🔵","#087c37":"🟢","#c9d5f0":"⚪","#74130f":"🟥","#ed6c83":"🩷","#c8c8c8":"⚪","#71983d":"🟢","#e849bc":"🩷","#642bb7":"🟣","#e6b6ce":"🩷","#15834b":"🟢","#6026b8":"🟣","#f58216":"🟠","#6c3f1d":"🟤","#fff2a8":"🟡","#536b12":"🟢","#42b994":"🟢","#f20b1d":"🔴"};
+  const mark=S.votes[p.id]?`<span class="voteMark">${S.votes[p.id]} vote${S.votes[p.id]===1?"":"s"}</span>`:"";
+  b.innerHTML=`<span class="voteAvatar" style="color:${p.color}">${emojiByColor[p.color]||"●"}</span><span class="voteNames"><b>${p.name}</b><small>${p.alive?"Alive":"Ejected"}</small></span>${mark}`;
+  b.onclick=()=>{if(S.voted.has("observer"))return;S.observerVote=String(p.id);renderMeetingUI()};
+  grid.appendChild(b);
+ });
+ $("remainingVotes").textContent=`${Math.max(0,alive().length-S.voted.size)} remaining`;
+}
+function castObserverVote(target){
+ if(S.voted.has("observer"))return;
+ S.observerVote=target;S.voted.add("observer");
+ if(target==="skip")addMeetingLine("YOU","voted to skip.","system");
+ else {const p=S.players.find(p=>String(p.id)===target);addMeetingLine("YOU",`voted for ${p?p.name:"a player"}.`,"system")}
+ if(target!=="skip")S.votes[target]=(S.votes[target]||0)+1;
+ renderMeetingUI();
+}
+function finishMeetingUI(){
+ if(!S.meetingOpen)return;
+ if(!S.voted.has("observer"))castObserverVote(S.observerVote||"skip");
+ $("meetingModal").classList.remove("show");S.meetingOpen=false;
+ // Judge's once-per-game Overrule unlocks after 3 completed tasks.
+ const allVotes={...S.votes};
+ const max=Math.max(0,...Object.values(allVotes));const top=Object.keys(allVotes).filter(k=>allVotes[k]===max&&max>0);
+ const judge=S.players.find(p=>p.alive&&p.role==="Judge"&&!p.judgeUsed&&p.done>=3);
+ if(judge){
+   judge.judgeUsed=true;
+   let target=top.length===1?S.players.find(p=>String(p.id)===top[0]&&p.alive):null;
+   if(!target)target=alive().filter(p=>p.id!==judge.id).sort((a,b)=>score(judge,b)-score(judge,a))[0];
+   if(target&&target.team==="Impostor"){log(`⚖️ Judge ${judge.name} used Overrule and correctly chose ${target.name}!`,"good");eliminate(target,"was overruled and ejected");if($("confirm").value==="yes")log(`${target.name} was an Impostor.`,"good")}
+   else {log(`⚖️ Judge ${judge.name} used Overrule but made the wrong call!`,"bad");eliminate(judge,"was ejected after a wrong Judge verdict");if(target)log(`${target.name} was not the Impostor.`,"bad")}
+ } else if(top.length!==1){log("Meeting vote tied or skipped. Nobody was ejected.","meet")}
+ else {const p=S.players.find(p=>String(p.id)===top[0]);if(p&&p.alive){eliminate(p,"was ejected");log(`${p.name} was ejected with ${max} votes.`,"meet");if($("confirm").value==="yes")log(`${p.name} was ${p.team==="Impostor"?"an Impostor":"not an Impostor"}.`,p.team==="Impostor"?"good":"bad")}}
+ S.phase="Tasks";checkWin();render();
+}
+
+function phase(){
+ if(!S.started){start();return}if(S.ended)return;
+ S.phase="Tasks";S.round++;
+ // A dead Guardian Angel occasionally shields a living Crewmate for the next attack.
+ const angel=S.players.find(p=>!p.alive&&p.role==="Guardian Angel");
+ if(angel&&Math.random()<.35){const target=pick(crew().filter(p=>!p.protected));if(target){target.protected=true;log(`✨ Guardian Angel ${angel.name} protected ${target.name}.`,"good")}}
+ const influencer=S.players.find(p=>!p.alive&&p.role==="Influencer"&&(p.influenceUses||0)<3);
+ if(influencer&&crew().length&&Math.random()<.5){const target=pick(crew());const clues=[`📸 ${influencer.name} sent ${target.name} a blurry image clue: a shadow near Electrical.`,`📸 ${influencer.name} sent ${target.name} a clue image showing a figure near ${pick(Object.keys(rooms))}.`,`📸 ${influencer.name} sent ${target.name} an image clue with a suspicious color in the background.`];influencer.influenceUses=(influencer.influenceUses||0)+1;log(clues[influencer.influenceUses-1]||clues[2],"meet")}
+ S.players.filter(p=>p.alive).forEach(p=>{
+   move(p);
+   if(p.team==="Crewmate"&&p.role!=="Guardian Angel"&&p.done<p.tasks&&Math.random()<.62){p.done++;S.done++;log(`${p.name} completed a task in ${p.room}.`,"good")}
+   if(p.role==="Scientist"&&Math.random()<.08)log(`${p.name} checked vitals and noticed the player count changed recently.`);
+   if(p.role==="Tracker"&&Math.random()<.08){const target=pick(alive().filter(q=>q.id!==p.id));if(target)log(`${p.name} tracked ${target.name} to ${target.room}.`)}
+   if(p.role==="Detective"&&Math.random()<.08){const target=pick(alive().filter(q=>q.id!==p.id));if(target)log(`${p.name} investigated ${target.name}'s recent route near ${target.room}.`)}
+   if(p.role==="Judge"&&p.done>=3&&!p.judgeUsed&&!p.judgeReadyLogged){p.judgeReadyLogged=true;log(`⚖️ Judge ${p.name}'s Overrule is ready for a meeting!`,"good")}
+   if(p.role==="Engineer"&&Math.random()<.1){const vent=pick(vents);p.room=vent[0];log(`${p.name} (Engineer) used a vent near ${vent[0]}.`)}
+   if(p.team==="Impostor"&&Math.random()<.23){const target=crew().filter(q=>q.room===p.room&&q.id!==p.id)[0]|| (Math.random()<.45?pick(crew()):null);if(target){if(target.protected){target.protected=false;log(`Guardian Angel protection saved ${target.name} from an attack!`,"good")}else{const targetRoleBeforeDeath=target.role;eliminate(target,p.role==="Viper"?"was dissolved by a Viper attack":"was killed");if(targetRoleBeforeDeath==="Noisemaker")log(`🔊 Noisemaker alert! ${target.name}'s elimination alerted nearby players.`,"meet");if(p.role==="Shapeshifter")log(`${p.name} (Shapeshifter) left a confusing disguise sighting.`);if(p.role==="Phantom")log(`${p.name} (Phantom) briefly vanished after the attack.`);if(p.role==="Viper")log(`The body was dissolved by ${p.name}'s Viper ability.`);else log(`A body was found in ${target.room}.`);meeting("body");return}}}
+   if(p.team==="Impostor"&&Math.random()<.11){const vent=pick(vents);p.room=vent[0];log(`${p.name} used a vent near ${vent[0]}.`,"bad")}
+ });
+ if(S.ended)return;
+ if(Math.random()<.28)sabotage();
+ if(S.ended){render();return}
+ if(Math.random()<.28)meeting("emergency");
+ checkWin();render();
+}
+function score(p,q){let s=p.suspicion[q.id]||0;const sightings=p.seen.filter(x=>x.id===q.id);s+=Math.min(2,sightings.length*.5);if(q.team==="Impostor")s+=Math.random()*.8;return s}
+function meeting(why){
+ if(S.ended)return;S.phase="Meeting";S.meetings++;S.chat=[];log(why==="body"?"🚨 Emergency meeting: body reported.":"🚨 Emergency meeting called.","meet");
+ const living=alive();
+ living.forEach(p=>{if(Math.random()<.85){let others=living.filter(q=>q.id!==p.id);if(others.length){let suspect=others.sort((a,b)=>score(p,b)-score(p,a))[0];const lines=[`I saw ${suspect.name} in ${suspect.room}.`,`Can ${suspect.name} explain their route?`,`I don't have proof, but ${suspect.name} seems suspicious.`,`Let's compare alibis before voting.`,`I was doing a task in ${p.room}.`];S.chat.push({name:p.name,text:pick(lines)})}}});
+ $("chat").innerHTML="";S.chat.forEach(s=>{let d=document.createElement("div");d.className="speech";d.innerHTML=`<b>${s.name}</b><br>${s.text}`;$("chat").appendChild(d)});
+ S.votes={};S.voted=new Set();
+ living.forEach(p=>{let opts=living.filter(q=>q.id!==p.id);if(!opts.length)return;let target=opts.map(q=>({q,s:score(p,q)+(p.team==="Impostor"?(q.team==="Crewmate"?.8:-5):0)+Math.random()})).sort((a,b)=>b.s-a.s)[0].q;let v=Math.random()<.14?"skip":String(target.id);if(v!=="skip")S.votes[v]=(S.votes[v]||0)+1;S.voted.add(p.id)});
+ openMeetingUI();render();
+}
+function checkWin(){if(!S.started||S.ended)return;let i=imps().length,c=crew().length,w="";if(!i||S.done>=S.total)w="Crewmates";else if(i>=c)w="Impostors";if(w){S.ended=true;S.phase="Game over";clearInterval(S.auto);S.auto=null;log(`🏆 ${w} win!`,"good");log("Final roles: "+S.players.map(p=>`${p.name}: ${p.role}`).join(" · "));}}
+function renderPlayers(){
+ const g=$("tokens");g.innerHTML="";
+ S.players.forEach((p,i)=>{if(!p.alive)return;let [x,y]=rooms[p.room]||rooms.Cafeteria;let dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;let c=svgEl("circle",{cx:x+dx,cy:y+dy,r:7,fill:p.color,class:"player",title:`${p.name} · ${p.room}`},g);c.addEventListener("click",()=>alert(`${p.name}\nRoom: ${p.room}\nStatus: Alive\nRole: ${S.ended?p.role:(p.team==="Crewmate"?"Hidden":"Hidden")}\nPersonality: ${p.personality}`));let t=svgEl("text",{x:x+dx,y:y+20+dy,class:"playertext"},g);t.textContent=p.name.slice(0,6)});
+ const r=$("roster");r.innerHTML="";S.players.forEach(p=>{let d=document.createElement("div");d.className="bean"+(!p.alive?" dead":"")+(S.ended&&p.role==="Impostor"?" imp":"");d.innerHTML=`<div class="avatar" style="color:${p.color}">●</div><b>${p.name}</b><small>${p.alive?p.room:"Ghost"}${S.ended?" · "+p.role:(!p.alive&&(p.role==="Guardian Angel"||p.role==="Influencer")?" · "+p.role:"")}</small>`;r.appendChild(d)});
+}
+function renderLog(){const e=$("log");e.innerHTML="";S.logs.slice(0,100).forEach(x=>{let d=document.createElement("div");d.className="event "+x.type;d.innerHTML=`<small>ROUND ${S.round} · ${S.phase}</small>${x.t}`;e.appendChild(d)})}
+function render(){ $("phase").textContent=S.phase;$("alive").textContent=alive().length;$("meetings").textContent=S.meetings;$("round").textContent="Round "+S.round;$("bar").style.width=(S.total?Math.min(100,S.done/S.total*100):0)+"%";$("taskLabel").textContent=`${S.done} / ${S.total} tasks completed.`;renderPlayers();renderLog();$("start").disabled=S.started&&!S.ended;$("step").disabled=!S.started||S.ended;$("auto").textContent=S.auto?"⏸ Pause auto-play":"⚡ Auto-play"}
+$("skipVote").onclick=()=>{if(S.meetingOpen)castObserverVote("skip")};
+$("finishMeeting").onclick=finishMeetingUI;
+$("sendObserver").onclick=()=>{const text=$("observerMessage").value.trim();if(text){addMeetingLine("YOU",text);$("observerMessage").value=""}};
+$("observerMessage").addEventListener("keydown",e=>{if(e.key==="Enter")$("sendObserver").click()});
+$("start").onclick=start;$("step").onclick=phase;$("reset").onclick=reset;$("auto").onclick=()=>{if(S.auto){clearInterval(S.auto);S.auto=null}else{if(!S.started)start();S.auto=setInterval(()=>{if(!S.ended)phase();else{clearInterval(S.auto);S.auto=null}render()},2200)}render()};
+["nplayers","nimp","ntasks","confirm"].forEach(id=>$(id).onchange=()=>{if(!S.started||S.ended)reset()});
+drawMap();reset();
+</script></body></html>
