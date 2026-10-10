@@ -293,7 +293,7 @@ function phase(){
  if(S.ended)return;
  if(Date.now()>=S.sabotageReadyAt&&Math.random()<.28)sabotage();
  if(S.ended){render();return}
- if(Math.random()<.28)meeting("emergency");
+ if(Math.random()<.28&&alive().some(p=>p.room==="Cafeteria")){const caller=pick(alive().filter(p=>p.room==="Cafeteria"));log("📢 "+caller.name+" called an emergency meeting from Cafeteria.","meet");meeting("emergency")}
  checkWin();render();
 }
 function score(p,q){let s=p.suspicion[q.id]||0;const sightings=p.seen.filter(x=>x.id===q.id);s+=Math.min(2,sightings.length*.5);if(q.team==="Impostor")s+=Math.random()*.8;return s}
@@ -315,7 +315,9 @@ async function requestAIMeetingChat(why){
  }catch(err){status.textContent="AI unavailable — local discussion still works";console.warn("Bean Brain AI:",err)}
 }
 function meeting(why){
- if(S.ended)return;S.phase="Meeting";S.meetings++;S.chat=[];log(why==="body"?"🚨 Emergency meeting: body reported.":"🚨 Emergency meeting called.","meet");
+ if(S.ended)return;
+ if(why==="emergency"&&!alive().some(p=>p.room==="Cafeteria")){log("No emergency meeting: a living player must be in Cafeteria.","meet");return}
+ S.phase="Meeting";S.meetings++;S.chat=[];log(why==="body"?"🚨 Emergency meeting: body reported.":"🚨 Emergency meeting called.","meet");
  const living=alive();
  living.forEach(p=>{if(Math.random()<.95){let others=living.filter(q=>q.id!==p.id);if(others.length){let suspect=others.sort((a,b)=>score(p,b)-score(p,a))[0];const sight=p.seen.filter(x=>x.round>=S.round-2&&x.id===suspect.id);let line=sight.length?"I saw "+suspect.name+" around "+sight[0].room+".":p.personality==="logical"?"My last known location was "+p.room+". Let us compare routes.":p.personality==="observant"?"Who was near "+pick(Object.keys(rooms))+"? I noticed movement there.":p.personality==="skeptical"?"I need evidence before accusing "+suspect.name+".":p.personality==="social"?"Everyone, share your alibis. Where were you?":suspect.name+" was near "+suspect.room+"; can anyone confirm that?";S.chat.push({name:p.name,text:line})}}});
  $("chat").innerHTML="";S.chat.forEach(s=>{let d=document.createElement("div");d.className="speech";d.innerHTML=`<b>${s.name}</b><br>${s.text}`;$("chat").appendChild(d)});
