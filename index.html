@@ -63,6 +63,7 @@ h2{font-size:1.05rem;margin:0 0 10px}h3{font-size:.9rem;margin:15px 0 8px}
 <div class="row"><label for="nimp">Impostors</label><select id="nimp"><option>1</option><option selected>2</option><option>3</option></select></div>
 <div class="row"><label for="ntasks">Tasks per Crewmate</label><select id="ntasks"><option>3</option><option selected>5</option><option>7</option></select></div>
 <div class="row"><label for="confirm">Confirm ejections</label><select id="confirm"><option value="yes" selected>On</option><option value="no">Off</option></select></div>
+<div class="row"><label for="aiEndpoint">AI backend URL</label><input id="aiEndpoint" type="url" placeholder="Secure AI endpoint (optional)" style="width:65%;min-width:0;background:#202c40;color:var(--text);border:1px solid #485e7d;border-radius:8px;padding:8px"></div><div class="controls"><button id="saveAI">Save AI endpoint</button><span class="muted" id="aiStatus">Character brains: local mode</span></div>
 <div class="stats"><div class="stat"><small>Phase</small><strong id="phase">Lobby</strong></div><div class="stat"><small>Alive</small><strong id="alive">10</strong></div><div class="stat"><small>Meetings</small><strong id="meetings">0</strong></div></div>
 <h3>The Skeld — simplified room map</h3>
 <div class="mapwrap"><svg id="map" viewBox="0 0 1000 660" role="img" aria-label="Simplified schematic map of The Skeld">
@@ -286,6 +287,23 @@ function phase(){
  checkWin();render();
 }
 function score(p,q){let s=p.suspicion[q.id]||0;const sightings=p.seen.filter(x=>x.id===q.id);s+=Math.min(2,sightings.length*.5);if(q.team==="Impostor")s+=Math.random()*.8;return s}
+async function requestAIMeetingChat(why){
+ const endpoint=localStorage.getItem("beanBrainAIEndpoint")||"";
+ if(!endpoint)return;
+ const status=$("aiStatus");status.textContent="AI is thinking…";
+ try{
+  const payload={event:why,round:S.round,players:alive().map(p=>({id:p.id,name:p.name,personality:p.personality,room:p.room,team:p.team,seen:p.seen.filter(x=>x.round>=S.round-2).map(x=>({id:x.id,room:x.room,round:x.round})),suspicion:Object.entries(p.suspicion||{}).map(([id,value])=>({id:Number(id),value}))})),chat:S.chat};
+  const res=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  if(!res.ok)throw new Error("AI endpoint returned "+res.status);
+  const data=await res.json();
+  if(!Array.isArray(data.messages))throw new Error("Expected a messages array");
+  const byId=new Map(S.players.map(p=>[p.id,p]));
+  S.chat=data.messages.filter(m=>byId.has(Number(m.id))&&typeof m.text==="string").map(m=>({name:byId.get(Number(m.id)).name,text:m.text.slice(0,240)}));
+  $("chat").innerHTML="";S.chat.forEach(s=>{const d=document.createElement("div");d.className="speech";const b=document.createElement("b");b.textContent=s.name;const t=document.createElement("div");t.textContent=s.text;d.append(b,t);$("chat").appendChild(d)});
+  if(S.meetingOpen){$("meetingMessages").innerHTML="";S.chat.forEach(s=>addMeetingLine(s.name,s.text));addMeetingLine("SYSTEM","AI-generated discussion. Vote when ready.","system")}
+  status.textContent="Connected: AI discussion active";
+ }catch(err){status.textContent="AI unavailable — local discussion still works";console.warn("Bean Brain AI:",err)}
+}
 function meeting(why){
  if(S.ended)return;S.phase="Meeting";S.meetings++;S.chat=[];log(why==="body"?"🚨 Emergency meeting: body reported.":"🚨 Emergency meeting called.","meet");
  const living=alive();
@@ -293,7 +311,7 @@ function meeting(why){
  $("chat").innerHTML="";S.chat.forEach(s=>{let d=document.createElement("div");d.className="speech";d.innerHTML=`<b>${s.name}</b><br>${s.text}`;$("chat").appendChild(d)});
  S.votes={};S.voted=new Set();
  living.forEach(p=>{let opts=living.filter(q=>q.id!==p.id);if(!opts.length)return;let target=opts.map(q=>({q,s:score(p,q)+(p.team==="Impostor"?(q.team==="Crewmate"?.8:-5):0)+Math.random()})).sort((a,b)=>b.s-a.s)[0].q;let v=Math.random()<.14?"skip":String(target.id);if(v!=="skip")S.votes[v]=(S.votes[v]||0)+1;S.voted.add(p.id)});
- openMeetingUI();render();
+ openMeetingUI();render();requestAIMeetingChat(why);
 }
 function checkWin(){if(!S.started||S.ended)return;let i=imps().length,c=crew().length,w="";if(!i||S.done>=S.total)w="Crewmates";else if(i>=c)w="Impostors";if(w){S.ended=true;S.phase="Game over";clearInterval(S.auto);S.auto=null;log(`🏆 ${w} win!`,"good");log("Final roles: "+S.players.map(p=>`${p.name}: ${p.role}`).join(" · "));}}
 function renderPlayers(){
@@ -316,6 +334,8 @@ $("sendObserver").onclick=()=>{const text=$("observerMessage").value.trim();if(t
 $("observerMessage").addEventListener("keydown",e=>{if(e.key==="Enter")$("sendObserver").click()});
 $("start").onclick=start;$("step").onclick=phase;$("reset").onclick=reset;$("auto").onclick=()=>{if(S.auto){clearInterval(S.auto);S.auto=null}else{if(!S.started)start();S.auto=setInterval(()=>{if(!S.ended)phase();else{clearInterval(S.auto);S.auto=null}render()},2200)}render()};
 ["nplayers","nimp","ntasks","confirm"].forEach(id=>$(id).onchange=()=>{if(!S.started||S.ended)reset()});
+$("saveAI").onclick=()=>{const url=$("aiEndpoint").value.trim();if(url){try{new URL(url);localStorage.setItem("beanBrainAIEndpoint",url);$("aiStatus").textContent="AI endpoint saved"}catch{$("aiStatus").textContent="Enter a valid URL"}}else{localStorage.removeItem("beanBrainAIEndpoint");$("aiStatus").textContent="Local discussion mode"}};
+$("aiEndpoint").value=localStorage.getItem("beanBrainAIEndpoint")||"";
 drawMap();reset();requestAnimationFrame(animateMovement);
 
 if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Offline app setup unavailable:", err))); }
