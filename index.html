@@ -170,19 +170,30 @@ function start(){
  log(`Match started on The Skeld: ${S.players.length} players, ${count} Impostor(s).`,"good");log("Everyone starts in Cafeteria. Secret roles assigned.");render();
 }
 function roomPoint(room){const pt=rooms[room]||rooms.Cafeteria;return {x:pt[0],y:pt[1]}}
+const navNodes={H0:{x:500,y:175},H1:{x:390,y:175},H2:{x:390,y:145},H3:{x:390,y:245},H4:{x:390,y:315},H5:{x:390,y:390},H6:{x:390,y:500},H7:{x:500,y:330},H8:{x:500,y:520},H9:{x:650,y:190},H10:{x:650,y:245},H11:{x:650,y:330},H12:{x:650,y:390},H13:{x:775,y:245},H14:{x:775,y:330},H15:{x:650,y:500},
+"D:Cafeteria":{x:500,y:155},"D:Upper Engine":{x:370,y:145},"D:Reactor":{x:250,y:245},"D:Security":{x:370,y:255},"D:MedBay":{x:452,y:180},"D:Electrical":{x:325,y:330},"D:Storage":{x:500,y:350},"D:Admin":{x:577,y:245},"D:O2":{x:650,y:220},"D:Navigation":{x:775,y:220},"D:Shields":{x:650,y:330},"D:Weapons":{x:780,y:330},"D:Communications":{x:650,y:410},"D:Lower Engine":{x:380,y:500}};
+const navLinks=[["H0","H1"],["H1","H2"],["H1","H3"],["H3","H4"],["H4","H5"],["H5","H6"],["H6","H8"],["H8","H15"],["H15","H12"],["H12","H11"],["H11","H10"],["H10","H9"],["H9","H0"],["H10","H13"],["H13","H14"],["H14","H11"],["H4","H7"],["H7","H11"],["H7","H0"],["D:Cafeteria","H0"],["D:Upper Engine","H2"],["D:Reactor","H3"],["D:Security","H3"],["D:MedBay","H0"],["D:Electrical","H4"],["D:Storage","H7"],["D:Admin","H10"],["D:O2","H9"],["D:Navigation","H13"],["D:Shields","H11"],["D:Weapons","H14"],["D:Communications","H12"],["D:Lower Engine","H6"]];
+const roomDoors={"Cafeteria":"D:Cafeteria","Upper Engine":"D:Upper Engine","Reactor":"D:Reactor","Security":"D:Security","MedBay":"D:MedBay","Electrical":"D:Electrical","Storage":"D:Storage","Admin":"D:Admin","O2":"D:O2","Navigation":"D:Navigation","Shields":"D:Shields","Weapons":"D:Weapons","Communications":"D:Communications","Lower Engine":"D:Lower Engine"};
+function navRoute(fromRoom,toRoom){
+ const start=roomDoors[fromRoom]||roomDoors.Cafeteria,goal=roomDoors[toRoom]||roomDoors.Cafeteria,graph={};
+ Object.keys(navNodes).forEach(k=>graph[k]=[]);
+ navLinks.forEach(([a,b])=>{const A=navNodes[a],B=navNodes[b],d=Math.hypot(A.x-B.x,A.y-B.y);graph[a].push([b,d]);graph[b].push([a,d])});
+ const dist={},prev={},open=new Set(Object.keys(navNodes));Object.keys(navNodes).forEach(k=>dist[k]=Infinity);dist[start]=0;
+ while(open.size){let u=null;for(const k of open)if(u===null||dist[k]<dist[u])u=k;if(u===null||!isFinite(dist[u])||u===goal)break;open.delete(u);for(const [v,w] of graph[u])if(open.has(v)&&dist[u]+w<dist[v]){dist[v]=dist[u]+w;prev[v]=u}}
+ const keys=[];let cur=goal;while(cur&&cur!==start){keys.unshift(cur);cur=prev[cur]}if(cur!==start)return [roomPoint(fromRoom),roomPoint(toRoom)];keys.unshift(start);
+ return [roomPoint(fromRoom),...keys.map(k=>navNodes[k]),roomPoint(toRoom)];
+}
 function move(p){
- const options=edges[p.room]||["Cafeteria"],next=pick(options);
- const from=p.x!=null?{x:p.x,y:p.y}:roomPoint(p.room),to=roomPoint(next);
- p.motion={sx:from.x,sy:from.y,tx:to.x,ty:to.y,start:performance.now(),duration:1050};
- p.x=to.x;p.y=to.y;p.room=next;
+ const options=edges[p.room]||["Cafeteria"],next=pick(options),route=navRoute(p.room,next);
+ if(p.x==null){p.x=route[0].x;p.y=route[0].y}route[0]={x:p.x,y:p.y};
+ p.motion={points:route,index:0,segmentStart:performance.now(),duration:500};p.room=next;
  S.players.filter(q=>q.id!==p.id&&q.alive&&q.room===p.room).forEach(q=>{if(Math.random()<.8){p.seen.push({id:q.id,room:p.room,round:S.round});q.seen.push({id:p.id,room:p.room,round:S.round})}});
 }
 function animateMovement(now){
  S.players.forEach(p=>{if(!p.alive||!p.token||!p.label)return;let x,y;
-  if(p.motion){const t=Math.max(0,Math.min(1,(now-p.motion.start)/p.motion.duration)),e=t*t*(3-2*t);x=p.motion.sx+(p.motion.tx-p.motion.sx)*e;y=p.motion.sy+(p.motion.ty-p.motion.sy)*e;if(t>=1)p.motion=null}
+  if(p.motion){const m=p.motion,a=m.points[m.index],b=m.points[m.index+1];if(!b){p.motion=null;x=p.x;y=p.y}else{const t=Math.max(0,Math.min(1,(now-m.segmentStart)/m.duration)),e=t*t*(3-2*t);x=a.x+(b.x-a.x)*e;y=a.y+(b.y-a.y)*e;if(t>=1){m.index++;m.segmentStart=now;const n=m.points[m.index+1];m.duration=n?Math.max(250,Math.min(750,Math.hypot(n.x-b.x,n.y-b.y)*3)):300;if(!n){p.motion=null;x=b.x;y=b.y}}}}
   else {const pt=roomPoint(p.room);x=p.x??pt.x;y=p.y??pt.y}
-  p.x=x;p.y=y;const i=p.id,dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;
-  p.token.setAttribute("cx",x+dx);p.token.setAttribute("cy",y+dy);p.label.setAttribute("x",x+dx);p.label.setAttribute("y",y+20+dy);
+  p.x=x;p.y=y;const i=p.id,dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;p.token.setAttribute("cx",x+dx);p.token.setAttribute("cy",y+dy);p.label.setAttribute("x",x+dx);p.label.setAttribute("y",y+20+dy);
  });requestAnimationFrame(animateMovement);
 }
 function sabotage(){
