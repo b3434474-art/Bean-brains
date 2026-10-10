@@ -157,7 +157,7 @@ function reset(){
 function start(){
  if(S.started&&!S.ended)return;
  const count=Math.min(+$("nimp").value,S.players.length-1), tasks=+$("ntasks").value;
- shuffle(S.players).forEach((p,i)=>{p.team=i<count?"Impostor":"Crewmate";p.role=p.team==="Impostor"?"Impostor":"Crewmate";p.alive=true;p.room="Cafeteria";p.tasks=p.team==="Crewmate"?tasks:0;p.done=0;p.seen=[];p.suspicion={};p.protected=false;p.tracked=null;p.judgeUsed=false;p.influenceUses=0});
+ shuffle(S.players).forEach((p,i)=>{p.team=i<count?"Impostor":"Crewmate";p.role=p.team==="Impostor"?"Impostor":"Crewmate";p.alive=true;p.room="Cafeteria";p.x=rooms.Cafeteria[0];p.y=rooms.Cafeteria[1];p.motion=null;p.token=null;p.label=null;p.tasks=p.team==="Crewmate"?tasks:0;p.done=0;p.seen=[];p.suspicion={};p.protected=false;p.tracked=null;p.judgeUsed=false;p.influenceUses=0});
  // Give special roles to a small random selection without changing team alignment.
  const crewPool=shuffle(S.players.filter(p=>p.team==="Crewmate"));
  // Randomize both player and role order so every Crewmate role, including Judge, can appear.
@@ -168,9 +168,21 @@ function start(){
  S.total=S.players.reduce((n,p)=>n+p.tasks,0);S.done=0;S.started=true;S.ended=false;S.phase="Tasks";S.round=1;S.meetings=0;S.sabotage=null;
  log(`Match started on The Skeld: ${S.players.length} players, ${count} Impostor(s).`,"good");log("Everyone starts in Cafeteria. Secret roles assigned.");render();
 }
+function roomPoint(room){const pt=rooms[room]||rooms.Cafeteria;return {x:pt[0],y:pt[1]}}
 function move(p){
- const options=edges[p.room]||["Cafeteria"];p.room=pick(options);
+ const options=edges[p.room]||["Cafeteria"],next=pick(options);
+ const from=p.x!=null?{x:p.x,y:p.y}:roomPoint(p.room),to=roomPoint(next);
+ p.motion={sx:from.x,sy:from.y,tx:to.x,ty:to.y,start:performance.now(),duration:1050};
+ p.x=to.x;p.y=to.y;p.room=next;
  S.players.filter(q=>q.id!==p.id&&q.alive&&q.room===p.room).forEach(q=>{if(Math.random()<.8){p.seen.push({id:q.id,room:p.room,round:S.round});q.seen.push({id:p.id,room:p.room,round:S.round})}});
+}
+function animateMovement(now){
+ S.players.forEach(p=>{if(!p.alive||!p.token||!p.label)return;let x,y;
+  if(p.motion){const t=Math.max(0,Math.min(1,(now-p.motion.start)/p.motion.duration)),e=t*t*(3-2*t);x=p.motion.sx+(p.motion.tx-p.motion.sx)*e;y=p.motion.sy+(p.motion.ty-p.motion.sy)*e;if(t>=1)p.motion=null}
+  else {const pt=roomPoint(p.room);x=p.x??pt.x;y=p.y??pt.y}
+  p.x=x;p.y=y;const i=p.id,dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;
+  p.token.setAttribute("cx",x+dx);p.token.setAttribute("cy",y+dy);p.label.setAttribute("x",x+dx);p.label.setAttribute("y",y+20+dy);
+ });requestAnimationFrame(animateMovement);
 }
 function sabotage(){
  if(!imps().length)return;
@@ -265,17 +277,17 @@ function score(p,q){let s=p.suspicion[q.id]||0;const sightings=p.seen.filter(x=>
 function meeting(why){
  if(S.ended)return;S.phase="Meeting";S.meetings++;S.chat=[];log(why==="body"?"🚨 Emergency meeting: body reported.":"🚨 Emergency meeting called.","meet");
  const living=alive();
- living.forEach(p=>{if(Math.random()<.85){let others=living.filter(q=>q.id!==p.id);if(others.length){let suspect=others.sort((a,b)=>score(p,b)-score(p,a))[0];const lines=[`I saw ${suspect.name} in ${suspect.room}.`,`Can ${suspect.name} explain their route?`,`I don't have proof, but ${suspect.name} seems suspicious.`,`Let's compare alibis before voting.`,`I was doing a task in ${p.room}.`];S.chat.push({name:p.name,text:pick(lines)})}}});
- $("chat").innerHTML="";S.chat.forEach(s=>{let d=document.createElement("div");d.className="speech";d.innerHTML=`<b>${s.name}</b><br>${s.text}`;$("chat").appendChild(d)});
- S.votes={};S.voted=new Set();
- living.forEach(p=>{let opts=living.filter(q=>q.id!==p.id);if(!opts.length)return;let target=opts.map(q=>({q,s:score(p,q)+(p.team==="Impostor"?(q.team==="Crewmate"?.8:-5):0)+Math.random()})).sort((a,b)=>b.s-a.s)[0].q;let v=Math.random()<.14?"skip":String(target.id);if(v!=="skip")S.votes[v]=(S.votes[v]||0)+1;S.voted.add(p.id)});
- openMeetingUI();render();
-}
-function checkWin(){if(!S.started||S.ended)return;let i=imps().length,c=crew().length,w="";if(!i||S.done>=S.total)w="Crewmates";else if(i>=c)w="Impostors";if(w){S.ended=true;S.phase="Game over";clearInterval(S.auto);S.auto=null;log(`🏆 ${w} win!`,"good");log("Final roles: "+S.players.map(p=>`${p.name}: ${p.role}`).join(" · "));}}
-function renderPlayers(){
+ living.forEach(p=>{if(Math.random()<.85){let others=living.filter(q=>q.id!==p.id);if(others.length){let suspect=others.sort((a,b)=>score(p,b)-score(p,a))[0];const lines=[`I saw ${suspect.name} in ${suspect.room}.`,`Can ${suspect.name} explain their route?`,`I don't have proof, but ${suspect.name} seems suspicious.`,`Let's compare alibis before voting.`,`I was doing a task in ${p.room}.`];S.chat.push({name:p.name,text:pick(lines)})}function renderPlayers(){
  const g=$("tokens");g.innerHTML="";
- S.players.forEach((p,i)=>{if(!p.alive)return;let [x,y]=rooms[p.room]||rooms.Cafeteria;let dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;let c=svgEl("circle",{cx:x+dx,cy:y+dy,r:7,fill:p.color,class:"player",title:`${p.name} · ${p.room}`},g);c.addEventListener("click",()=>alert(`${p.name}\nRoom: ${p.room}\nStatus: Alive\nRole: ${S.ended?p.role:(p.team==="Crewmate"?"Hidden":"Hidden")}\nPersonality: ${p.personality}`));let t=svgEl("text",{x:x+dx,y:y+20+dy,class:"playertext"},g);t.textContent=p.name.slice(0,6)});
- const r=$("roster");r.innerHTML="";S.players.forEach(p=>{let d=document.createElement("div");d.className="bean"+(!p.alive?" dead":"")+(S.ended&&p.role==="Impostor"?" imp":"");d.innerHTML=`<div class="avatar" style="color:${p.color}">●</div><b>${p.name}</b><small>${p.alive?p.room:"Ghost"}${S.ended?" · "+p.role:(!p.alive&&(p.role==="Guardian Angel"||p.role==="Influencer")?" · "+p.role:"")}</small>`;r.appendChild(d)});
+ S.players.forEach((p,i)=>{
+  if(!p.alive){p.token=null;p.label=null;return}
+  const pt=roomPoint(p.room);if(p.x==null)p.x=pt.x;if(p.y==null)p.y=pt.y;
+  const dx=((i%4)-1.5)*12,dy=(Math.floor(i/4)-1)*10;
+  const c=svgEl("circle",{cx:p.x+dx,cy:p.y+dy,r:7,fill:p.color,class:"player",title:p.name+" · "+p.room},g);
+  c.addEventListener("click",()=>alert(p.name+"\nRoom: "+p.room+"\nStatus: Alive\nRole: "+(S.ended?p.role:"Hidden")+"\nPersonality: "+p.personality));
+  const t=svgEl("text",{x:p.x+dx,y:p.y+20+dy,class:"playertext"},g);t.textContent=p.name.slice(0,6);p.token=c;p.label=t;
+ });
+ const r=$("roster");r.innerHTML="";S.players.forEach(p=>{let d=document.createElement("div");d.className="bean"+(!p.alive?" dead":"")+(S.ended&&p.role==="Impostor"?" imp":"");d.innerHTML='<div class="avatar" style="color:'+p.color+'">●</div><b>'+p.name+'</b><small>'+(p.alive?p.room:"Ghost")+(S.ended?" · "+p.role:(!p.alive&&(p.role==="Guardian Angel"||p.role==="Influencer")?" · "+p.role:""))+'</small>';r.appendChild(d)});
 }
 function renderLog(){const e=$("log");e.innerHTML="";S.logs.slice(0,100).forEach(x=>{let d=document.createElement("div");d.className="event "+x.type;d.innerHTML=`<small>ROUND ${S.round} · ${S.phase}</small>${x.t}`;e.appendChild(d)})}
 function render(){ $("phase").textContent=S.phase;$("alive").textContent=alive().length;$("meetings").textContent=S.meetings;$("round").textContent="Round "+S.round;$("bar").style.width=(S.total?Math.min(100,S.done/S.total*100):0)+"%";$("taskLabel").textContent=`${S.done} / ${S.total} tasks completed.`;renderPlayers();renderLog();$("start").disabled=S.started&&!S.ended;$("step").disabled=!S.started||S.ended;$("auto").textContent=S.auto?"⏸ Pause auto-play":"⚡ Auto-play"}
@@ -285,5 +297,5 @@ $("sendObserver").onclick=()=>{const text=$("observerMessage").value.trim();if(t
 $("observerMessage").addEventListener("keydown",e=>{if(e.key==="Enter")$("sendObserver").click()});
 $("start").onclick=start;$("step").onclick=phase;$("reset").onclick=reset;$("auto").onclick=()=>{if(S.auto){clearInterval(S.auto);S.auto=null}else{if(!S.started)start();S.auto=setInterval(()=>{if(!S.ended)phase();else{clearInterval(S.auto);S.auto=null}render()},2200)}render()};
 ["nplayers","nimp","ntasks","confirm"].forEach(id=>$(id).onchange=()=>{if(!S.started||S.ended)reset()});
-drawMap();reset();
+drawMap();reset();requestAnimationFrame(animateMovement);
 </script></body></html>
